@@ -53,6 +53,24 @@
   .stat .bar > i{display:block;height:100%;background:var(--gold);border-radius:5px}
   .stat .bar > i.over{background:var(--red)}
 
+  /* budget rows */
+  .brow{display:flex;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .brow:last-child{border-bottom:none}
+  .bmain{flex:1;min-width:0}
+  .bname{font-weight:600;font-size:14px}
+  .bbar{height:8px;background:var(--line);border-radius:5px;margin-top:8px;overflow:hidden}
+  .bbar > i{display:block;height:100%;background:var(--gold);border-radius:5px}
+  .bbar > i.over{background:var(--red)}
+  .bnums{text-align:right;white-space:nowrap;flex:none}
+  .bact{font-weight:700}
+  .bact.over{color:var(--red)}
+  .bexp{font-size:12px;color:var(--muted);margin-top:2px}
+  .btotal{display:flex;justify-content:space-between;align-items:center;
+    border-top:2px solid var(--navy);margin-top:6px;padding-top:13px;font-weight:800}
+  .btotal .tv{text-align:right}
+  .btotal .tv .a{font-size:18px;color:var(--navy)}
+  .btotal .tv .e{font-size:12px;color:var(--muted);font-weight:600}
+
   /* sections */
   section{margin-top:22px}
   .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
@@ -195,12 +213,25 @@
         <div class="bar"><i id="st-paid-bar" style="width:0%"></i></div>
       </div>
       <div class="stat">
-        <div class="k">Your spending logged</div>
+        <div class="k">Spent of budget</div>
         <div class="v" id="st-spend">₦0</div>
-        <div class="muted" style="font-size:12px;margin-top:4px" id="st-spend-sub">materials & extras</div>
+        <div class="bar"><i id="st-spend-bar" style="width:0%"></i></div>
+        <div class="muted" style="font-size:12px;margin-top:4px" id="st-spend-sub">of ₦3,220,000</div>
       </div>
     </div>
   </div>
+
+  <!-- BUDGET: expected vs actual -->
+  <section>
+    <div class="sec-head">
+      <h2><span class="dot"></span>Budget — expected vs actual</h2>
+      <span class="muted" id="budget-status" style="font-size:13px"></span>
+    </div>
+    <div class="card pad">
+      <p class="muted" style="margin:0 0 6px;font-size:13px">Your planned spend by trade. Each amount fills as you log expenses under that category in the Spending log below.</p>
+      <div id="budget"></div>
+    </div>
+  </section>
 
   <!-- BUILD STAGES -->
   <section>
@@ -246,9 +277,12 @@
       <div class="addform">
         <input class="grow" id="e-desc" placeholder="What did you buy / pay for?" />
         <select id="e-cat">
-          <option>Materials</option><option>Contractor payment</option><option>Labour</option>
-          <option>Mechanical</option><option>Electrical</option><option>Tiling</option>
-          <option>Transport</option><option>Other</option>
+          <option value="Masonry">Masonry job</option>
+          <option value="Carpentry">Carpenter</option>
+          <option value="Reinforcement">Reinforcement</option>
+          <option value="MEP">MEP works</option>
+          <option value="Tiling">Tiling works</option>
+          <option value="Logistics">Logistics &amp; misc.</option>
         </select>
         <input id="e-amt" type="number" min="0" step="any" placeholder="₦ amount" style="width:130px" />
         <input id="e-date" type="date" />
@@ -275,7 +309,7 @@
   <p class="foot">
     Live tracker for the Ibafo pool · data is saved privately in this browser.<br/>
     Use <b>Backup</b> to save a copy or move it to another device · <b>Save / Share PDF</b> to send a snapshot to your partner.<br/>
-    Built for the Dova Futures pool project. Contract sum ₦5,294,050 (felting optional, materials client-supply).
+    Built for the Dova Futures pool project. Your budget ₦3,220,000 · contractor's quote ₦5,294,050 (felting optional, materials client-supply).
   </p>
 </div>
 
@@ -288,6 +322,17 @@ const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("en-GB",{day
 
 const CONTRACT_BASE = 5294050;
 const FELTING = 275000;
+
+// Owner's expected spend by trade (your budget, separate from the contractor's quote).
+const BUDGET = [
+  {key:"Masonry",       label:"Masonry job",               expected:650000},
+  {key:"Carpentry",     label:"Carpenter (formwork)",      expected:100000},
+  {key:"Reinforcement", label:"Reinforcement jobs",        expected:120000},
+  {key:"MEP",           label:"MEP works",                 expected:2000000},
+  {key:"Tiling",        label:"Tiling works",              expected:250000},
+  {key:"Logistics",     label:"Logistics & miscellaneous", expected:100000},
+];
+const BUDGET_TOTAL = BUDGET.reduce((a,b)=>a+b.expected,0);  // ₦3,220,000
 
 const SEED = {
   stages: [
@@ -347,9 +392,45 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 function contractSum(){ return CONTRACT_BASE + (data.felting ? FELTING : 0); }
 
 function render(){
-  renderHero(); renderStages(); renderBreakdown(); renderPayments();
+  renderHero(); renderBudget(); renderStages(); renderBreakdown(); renderPayments();
   renderMaterials(); renderExpenses(); renderIssues();
   document.getElementById("felting").checked = data.felting;
+}
+
+function actualByCategory(){
+  const keys = BUDGET.map(b=>b.key);
+  const out = {}; BUDGET.forEach(b=>out[b.key]=0);
+  data.expenses.forEach(e=>{
+    const k = keys.includes(e.cat) ? e.cat : "Logistics";  // unknown → misc bucket
+    out[k] += (+e.amt||0);
+  });
+  return out;
+}
+
+function renderBudget(){
+  const act = actualByCategory();
+  const totalAct = Object.values(act).reduce((a,v)=>a+v,0);
+  let rows = BUDGET.map(b=>{
+    const a = act[b.key], over = a > b.expected;
+    const pc = b.expected ? Math.min(100, a/b.expected*100) : 0;
+    return `<div class="brow">
+      <div class="bmain">
+        <div class="bname">${b.label}</div>
+        <div class="bbar"><i class="${over?'over':''}" style="width:${pc}%"></i></div>
+      </div>
+      <div class="bnums">
+        <div class="bact ${over?'over':''}">${NGN(a)}</div>
+        <div class="bexp">of ${NGN(b.expected)}${over?" · over by "+NGN(a-b.expected):""}</div>
+      </div>
+    </div>`;
+  }).join("");
+  rows += `<div class="btotal"><div>Total expected spend</div>
+    <div class="tv"><div class="a">${NGN(totalAct)} <span style="font-size:13px;color:var(--muted)">spent</span></div>
+    <div class="e">of ${NGN(BUDGET_TOTAL)} budget</div></div></div>`;
+  document.getElementById("budget").innerHTML = rows;
+  const left = BUDGET_TOTAL - totalAct;
+  document.getElementById("budget-status").textContent =
+    left >= 0 ? `${NGN(left)} left` : `${NGN(-left)} over budget`;
 }
 
 function renderHero(){
@@ -367,6 +448,10 @@ function renderHero(){
 
   const spend = data.expenses.reduce((a,e)=>a+(+e.amt||0),0);
   document.getElementById("st-spend").textContent = NGN(spend);
+  document.getElementById("st-spend-bar").style.width = Math.min(100, spend/BUDGET_TOTAL*100)+"%";
+  document.getElementById("st-spend-bar").className = spend>BUDGET_TOTAL ? "over" : "";
+  document.getElementById("st-spend-sub").textContent =
+    spend>BUDGET_TOTAL ? "over ₦"+BUDGET_TOTAL.toLocaleString("en-NG")+" budget" : "of ₦"+BUDGET_TOTAL.toLocaleString("en-NG");
 }
 
 function renderStages(){

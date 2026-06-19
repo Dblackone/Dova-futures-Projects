@@ -47,6 +47,11 @@ NOTES: list[tuple[str, str, str]] = [
     ("general", "Payment schedule",
      "60% on mobilization (N3,176,430) | 30% on completion of casting & waterproofing "
      "(N1,588,215) | 10% on completion, testing & handover (N529,405)."),
+    ("general", "Owner's budget (expected spend)",
+     "Masonry job N650,000 | Carpenter N100,000 | Reinforcement jobs N120,000 | "
+     "MEP works N2,000,000 | Tiling works N250,000 | Logistics & miscellaneous N100,000 | "
+     "TOTAL EXPECTED N3,220,000. (Your planned outlay by trade, separate from the "
+     "contractor's N5,294,050 quote.)"),
     ("material", "Materials to supply (client supply)",
      '9" blocks 350-500 | cement 130-160 bags | marine boards 20 | 2x3 timber 90 lengths | '
      "nails 3 bags | waterproofing powder 1 bag + liquid 1 keg | 10mm rebar 50 + 12mm rebar 50 | "

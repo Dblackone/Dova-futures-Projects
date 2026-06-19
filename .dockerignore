@@ -1,0 +1,11 @@
+.venv
+data
+*.db
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.git
+.gitignore
+Projects
+*.md

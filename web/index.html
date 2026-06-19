@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1f2933" />
+  <title>SiteLedger — Construction Project Tracker</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">▰</span>
+      <span class="brand-name">SiteLedger</span>
+    </div>
+    <div class="project-switch">
+      <select id="project-select" aria-label="Select project"></select>
+      <button id="new-project-btn" class="btn btn-ghost" title="New project">＋</button>
+    </div>
+  </header>
+
+  <!-- Empty state when there are no projects yet -->
+  <section id="empty-state" class="empty-state hidden">
+    <div class="empty-card">
+      <h1>Track your build, the easy way</h1>
+      <p>Log expenses, artisan payments, milestones, issues and design notes — just by
+        typing in plain English. Start by creating your first project.</p>
+      <button id="empty-create-btn" class="btn btn-primary">Create your first project</button>
+    </div>
+  </section>
+
+  <main id="app" class="layout hidden">
+    <!-- LEFT: dashboard -->
+    <div class="dashboard">
+      <section class="summary" id="summary"></section>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="expenses">Expenses</button>
+        <button class="tab" data-tab="payments">Payments</button>
+        <button class="tab" data-tab="milestones">Milestones</button>
+        <button class="tab" data-tab="artisans">Artisans</button>
+        <button class="tab" data-tab="issues">Issues</button>
+        <button class="tab" data-tab="notes">Notes</button>
+      </nav>
+
+      <section class="tab-content" id="tab-content"></section>
+    </div>
+
+    <!-- RIGHT: assistant -->
+    <aside class="assistant" id="assistant">
+      <div class="assistant-head">
+        <h2>Assistant</h2>
+        <button id="assistant-close" class="btn btn-ghost mobile-only" aria-label="Close">✕</button>
+      </div>
+      <div class="chat-log" id="chat-log"></div>
+      <form class="chat-form" id="chat-form">
+        <textarea id="chat-input" rows="2" placeholder="e.g. Paid James the mason 400 for foundation work today"></textarea>
+        <button type="submit" class="btn btn-primary" id="chat-send">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <button id="assistant-fab" class="fab hidden" aria-label="Open assistant">💬</button>
+
+  <!-- New / edit project modal -->
+  <div id="project-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="modal-title">New project</h2>
+      <form id="project-form">
+        <label>Project name<input name="name" required placeholder="e.g. Maple Street House" /></label>
+        <div class="row">
+          <label>Budget<input name="budget" type="number" step="any" min="0" placeholder="0" /></label>
+          <label>Currency<input name="currency" maxlength="4" placeholder="$" value="$" /></label>
+        </div>
+        <label>Location<input name="location" placeholder="optional" /></label>
+        <div class="row">
+          <label>Start date<input name="start_date" type="date" /></label>
+          <label>Target finish<input name="target_end_date" type="date" /></label>
+        </div>
+        <label>Description<textarea name="description" rows="2" placeholder="optional"></textarea></label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

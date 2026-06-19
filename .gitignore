@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Environment / secrets
+.env
+
+# Local database (your project data lives here — keep it off git by default)
+data/*.db
+data/*.db-journal
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,25 +1,20 @@
-# Render Blueprint — one-click deploy of SiteLedger.
+# Render Blueprint — FREE deploy of SiteLedger (no paid disk, no payment required).
 #
-# In Render: New + > Blueprint, point it at this repo, deploy. Then set your
-# ANTHROPIC_API_KEY in the dashboard (Environment tab) to enable the assistant.
+# In Render: New + > Blueprint > pick this repo > Apply. It deploys on the Free plan.
+# Optional: set ANTHROPIC_API_KEY in the dashboard (Environment tab) to turn on the
+# plain-English assistant. The dashboard + manual entry work without it.
 #
-# The persistent disk keeps your SQLite data across restarts and redeploys, so
-# the pool project and everything you log is never lost. A disk requires a paid
-# instance (Starter, ~$7/mo). To trial for free instead, change `plan` to `free`
-# and delete the `disk:` block — note that free instances reset their storage on
-# restart, so only use that to try it out.
+# DATA NOTE: the Free plan has no persistent disk and the service sleeps after ~15
+# minutes of inactivity, so the local database resets when it wakes. That's fine for
+# trying it out — but for a real months-long tracker, either press the in-app data
+# export regularly, or ask to switch storage to a FREE hosted database (e.g. Turso)
+# so everything is kept permanently at no cost. See README "Put it online".
 services:
   - type: web
     name: siteledger
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: ANTHROPIC_API_KEY
-        sync: false          # set this secret in the Render dashboard
-      - key: TRACKER_DB
-        value: /data/tracker.db
-    disk:
-      name: tracker-data
-      mountPath: /data
-      sizeGB: 1
+        sync: false   # optional — set in the Render dashboard to enable the assistant

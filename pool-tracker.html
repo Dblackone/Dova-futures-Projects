@@ -219,6 +219,11 @@
         <div class="bar"><i id="st-spend-bar" style="width:0%"></i></div>
         <div class="muted" style="font-size:12px;margin-top:4px" id="st-spend-sub">of ₦3,220,000</div>
       </div>
+      <div class="stat">
+        <div class="k">Cash in hand</div>
+        <div class="v" id="st-cash">₦0</div>
+        <div class="muted" style="font-size:12px;margin-top:4px">received − profit − spent</div>
+      </div>
     </div>
   </div>
 
@@ -257,6 +262,14 @@
           <button class="btn btn-gold" id="cp-add">Log payment</button>
         </div>
         <div id="cp-summary"></div>
+        <h3 style="font-size:13px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Profit drawn</h3>
+        <div id="profit"></div>
+        <div class="addform" style="padding:10px 0 2px">
+          <input id="pf-amt" type="number" min="0" step="any" placeholder="₦ profit taken" class="grow" />
+          <input id="pf-date" type="date" />
+          <button class="btn btn-gold" id="pf-add">Take profit</button>
+        </div>
+        <div id="cash-summary"></div>
         <label class="mat" style="border-top:1px solid var(--line);margin-top:10px;padding-top:12px">
           <input type="checkbox" id="felting" />
           <span class="nm">Optional: felting of pool walls (waterproof membrane)</span>
@@ -384,7 +397,17 @@ const SEED = {
     ["Sharp Sand","As required"],["Granite","As required"],
     ["Plaster Sand","As required"],["Mosaic / coping tiles","As required"],
   ].map((m,i)=>({id:i+1,name:m[0],qty:m[1],got:false})),
-  expenses: [],
+  // money paid out, by budget category (from the 1st payment plan)
+  expenses: [
+    {uid:"seed-mason", desc:"Masonry — settled in full",             cat:"Masonry",       amt:650000,  date:""},
+    {uid:"seed-carp",  desc:"Carpenter (formwork) — settled in full", cat:"Carpentry",     amt:100000,  date:""},
+    {uid:"seed-rebar", desc:"Reinforcement — settled in full",        cat:"Reinforcement", amt:120000,  date:""},
+    {uid:"seed-mep",   desc:"MEP — advance payment",                  cat:"MEP",           amt:1400000, date:""},
+  ],
+  // profit you've drawn from client payments (kept separate from project spend)
+  profit: [
+    {id:1, amount:600000, date:"", note:"Profit taken from 1st client payment"},
+  ],
   issues: [],
 };
 
@@ -392,11 +415,19 @@ const KEY = "pool_ibafo_tracker_v1";
 let data = load();
 
 function load(){
+  const base = structuredClone(SEED);
   try{
     const raw = localStorage.getItem(KEY);
-    if(raw){ const d = JSON.parse(raw); return Object.assign(structuredClone(SEED), d); }
+    if(!raw) return base;
+    const d = JSON.parse(raw);
+    Object.keys(d).forEach(k=>{
+      const v = d[k];
+      if(Array.isArray(v)){ if(v.length) base[k] = v; }   // keep seeded rows when saved list is empty
+      else if(v && typeof v === "object"){ base[k] = Object.assign(base[k]||{}, v); }
+      else { base[k] = v; }
+    });
   }catch(e){}
-  return structuredClone(SEED);
+  return base;
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 
@@ -404,7 +435,7 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 function contractSum(){ return CONTRACT_BASE + (data.felting ? FELTING : 0); }
 
 function render(){
-  renderHero(); renderBudget(); renderStages(); renderBreakdown(); renderClientPayments();
+  renderHero(); renderBudget(); renderStages(); renderBreakdown(); renderClientPayments(); renderProfit();
   renderMaterials(); renderExpenses(); renderIssues();
   document.getElementById("felting").checked = data.felting;
 }
@@ -465,6 +496,12 @@ function renderHero(){
   document.getElementById("st-spend-bar").className = spend>BUDGET_TOTAL ? "over" : "";
   document.getElementById("st-spend-sub").textContent =
     spend>BUDGET_TOTAL ? "over ₦"+BUDGET_TOTAL.toLocaleString("en-NG")+" budget" : "of ₦"+BUDGET_TOTAL.toLocaleString("en-NG");
+
+  const profit = data.profit.reduce((a,p)=>a+(+p.amount||0),0);
+  const cash = received - profit - spend;
+  const cashEl = document.getElementById("st-cash");
+  cashEl.textContent = NGN(cash);
+  cashEl.style.color = cash < 0 ? "var(--red)" : "";
 }
 
 function renderStages(){
@@ -540,6 +577,28 @@ function renderClientPayments(){
      <div class="muted" style="font-size:11.5px;margin-top:8px">Agreed installments — ${guide}</div>`;
 }
 
+function renderProfit(){
+  const received = data.clientPayments.reduce((a,p)=>a+(+p.amount||0),0);
+  const profit = data.profit.reduce((a,p)=>a+(+p.amount||0),0);
+  const spent = data.expenses.reduce((a,e)=>a+(+e.amt||0),0);
+
+  const list = data.profit.map((p,i)=>`<div class="row">
+    <div class="m"><div class="t">${esc(p.note||("Profit "+(i+1)))}${p.date?'<span class="muted" style="font-weight:400"> · '+fmtDate(p.date)+'</span>':''}</div></div>
+    <div class="amt" style="color:var(--amber-dark)">${NGN(p.amount)}</div>
+    <button class="del" title="Remove" onclick="delProfit(${p.id})">✕</button>
+  </div>`).join("");
+  document.getElementById("profit").innerHTML =
+    list || '<div class="muted" style="padding:6px 0;font-size:13px">No profit drawn yet.</div>';
+
+  const cash = received - profit - spent;
+  document.getElementById("cash-summary").innerHTML =
+    `<div class="row" style="border-top:2px solid var(--navy)">
+       <div class="m"><div class="t" style="font-weight:800">Cash in hand</div>
+         <div class="muted" style="font-size:12px">${NGN(received)} received − ${NGN(profit)} profit − ${NGN(spent)} paid out</div></div>
+       <div class="amt" style="font-size:17px;color:${cash<0?'var(--red)':'var(--navy)'}">${NGN(cash)}</div>
+     </div>`;
+}
+
 function renderMaterials(){
   const el=document.getElementById("materials");
   el.innerHTML = data.materials.map(m=>`<label class="mat ${m.got?'got':''}">
@@ -608,6 +667,20 @@ function delClientPayment(id){
   data.clientPayments=data.clientPayments.filter(p=>p.id!==id);
   save(); renderClientPayments(); renderHero();
 }
+
+let pfId = Math.max(0, ...data.profit.map(p=>p.id||0));
+document.getElementById("pf-add").onclick=()=>{
+  const amt=parseFloat(document.getElementById("pf-amt").value);
+  if(!(amt>0)||isNaN(amt)){ toast("Enter the profit amount"); return; }
+  data.profit.push({id:++pfId, amount:amt, date:document.getElementById("pf-date").value||today(), note:"Profit taken"});
+  save(); renderProfit(); renderHero();
+  document.getElementById("pf-amt").value="";
+  toast("Profit recorded");
+};
+function delProfit(id){
+  data.profit=data.profit.filter(p=>p.id!==id);
+  save(); renderProfit(); renderHero();
+}
 function toggleMat(id){ const m=data.materials.find(x=>x.id===id); m.got=!m.got; save(); renderMaterials(); }
 
 document.getElementById("felting").addEventListener("change",e=>{
@@ -638,6 +711,7 @@ function delIssue(u){ data.issues=data.issues.filter(i=>i.uid!==u); save(); rend
 /* enter-to-add */
 document.getElementById("e-amt").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("e-add").click();});
 document.getElementById("cp-amt").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("cp-add").click();});
+document.getElementById("pf-amt").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("pf-add").click();});
 document.getElementById("i-text").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("i-add").click();});
 
 /* backup / restore */

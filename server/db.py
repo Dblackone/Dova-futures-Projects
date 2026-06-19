@@ -283,6 +283,15 @@ def list_milestones(project_id: int) -> list[dict]:
         conn.close()
 
 
+def get_milestone(milestone_id: int) -> Optional[dict]:
+    conn = get_conn()
+    try:
+        return _row(conn.execute(
+            "SELECT * FROM milestones WHERE id=?", (milestone_id,)).fetchone())
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # Artisans
 # --------------------------------------------------------------------------- #
@@ -432,12 +441,34 @@ def find_issue(project_id: int, title: str) -> Optional[dict]:
         conn.close()
 
 
+def get_issue(issue_id: int) -> Optional[dict]:
+    conn = get_conn()
+    try:
+        return _row(conn.execute(
+            "SELECT * FROM issues WHERE id=?", (issue_id,)).fetchone())
+    finally:
+        conn.close()
+
+
 def resolve_issue(issue_id: int, resolution: str = "") -> Optional[dict]:
     conn = get_conn()
     try:
         conn.execute(
             "UPDATE issues SET status='resolved', resolved_on=?, resolution=? WHERE id=?",
             (_today(), resolution, issue_id),
+        )
+        conn.commit()
+        return _row(conn.execute("SELECT * FROM issues WHERE id=?", (issue_id,)).fetchone())
+    finally:
+        conn.close()
+
+
+def reopen_issue(issue_id: int) -> Optional[dict]:
+    conn = get_conn()
+    try:
+        conn.execute(
+            "UPDATE issues SET status='open', resolved_on=NULL, resolution='' WHERE id=?",
+            (issue_id,),
         )
         conn.commit()
         return _row(conn.execute("SELECT * FROM issues WHERE id=?", (issue_id,)).fetchone())

@@ -174,13 +174,148 @@
     if (tab === "notes") return renderList(c, pid, "notes", "Design & construction notes", noteRow);
   }
 
+  // ----- add forms (manual entry, no AI) ----------------------------------
+  const TODAY = () => new Date().toISOString().slice(0, 10);
+  const ADD_SPECS = {
+    expenses: {
+      label: "Add expense", required: ["amount"],
+      fields: [
+        { name: "description", type: "text", ph: "What was bought / paid for", grow: true },
+        { name: "amount", type: "number", ph: "Amount" },
+        { name: "category", type: "text", ph: "Category", value: "materials" },
+        { name: "vendor", type: "text", ph: "Vendor (optional)" },
+        { name: "spent_on", type: "date", value: TODAY },
+        { name: "payment_status", type: "select",
+          options: [["paid", "Paid"], ["pending", "Owed / on credit"]] },
+      ],
+    },
+    payments: {
+      label: "Add payment", required: ["artisan_name", "amount"],
+      fields: [
+        { name: "artisan_name", type: "text", ph: "Who was paid", grow: true },
+        { name: "amount", type: "number", ph: "Amount" },
+        { name: "description", type: "text", ph: "What for, e.g. casting walls" },
+        { name: "paid_on", type: "date", value: TODAY },
+        { name: "status", type: "select",
+          options: [["paid", "Paid"], ["partial", "Part-paid"], ["pending", "Owed"]] },
+      ],
+    },
+    milestones: {
+      label: "Add stage", required: ["name"],
+      fields: [
+        { name: "name", type: "text", ph: "Stage / phase name", grow: true },
+        { name: "description", type: "text", ph: "Detail (optional)", grow: true },
+        { name: "status", type: "select",
+          options: [["not_started", "To-do"], ["in_progress", "Active"],
+                    ["blocked", "Blocked"], ["done", "Done"]] },
+        { name: "target_date", type: "date" },
+      ],
+    },
+    artisans: {
+      label: "Add worker", required: ["name"],
+      fields: [
+        { name: "name", type: "text", ph: "Name", grow: true },
+        { name: "trade", type: "text", ph: "Trade, e.g. mason" },
+        { name: "phone", type: "text", ph: "Phone (optional)" },
+        { name: "agreed_rate", type: "number", ph: "Agreed rate (optional)" },
+        { name: "notes", type: "text", ph: "Notes (optional)", grow: true },
+      ],
+    },
+    issues: {
+      label: "Log issue", required: ["title"],
+      fields: [
+        { name: "title", type: "text", ph: "What's the problem?", grow: true },
+        { name: "description", type: "text", ph: "Detail (optional)", grow: true },
+        { name: "severity", type: "select",
+          options: [["low", "Low"], ["medium", "Medium"], ["high", "High"], ["critical", "Critical"]],
+          value: "medium" },
+      ],
+    },
+    notes: {
+      label: "Add note", required: ["title"],
+      fields: [
+        { name: "title", type: "text", ph: "Title", grow: true },
+        { name: "category", type: "select",
+          options: [["construction", "Construction"], ["design", "Design"],
+                    ["material", "Material"], ["general", "General"]] },
+        { name: "content", type: "textarea", ph: "Details, specs, decisions…" },
+      ],
+    },
+  };
+
+  function buildAddForm(type) {
+    const spec = ADD_SPECS[type];
+    const form = el("form", "add-form");
+    spec.fields.forEach((f) => {
+      let input;
+      if (f.type === "select") {
+        input = el("select");
+        f.options.forEach(([v, l]) => {
+          const o = el("option"); o.value = v; o.textContent = l; input.appendChild(o);
+        });
+        if (f.value) input.value = f.value;
+      } else if (f.type === "textarea") {
+        input = el("textarea"); input.rows = 2;
+        if (f.ph) input.placeholder = f.ph;
+      } else {
+        input = el("input");
+        input.type = f.type || "text";
+        if (f.type === "number") { input.step = "any"; input.min = "0"; }
+        if (f.ph) input.placeholder = f.ph;
+        const v = typeof f.value === "function" ? f.value() : f.value;
+        if (v != null) input.value = v;
+      }
+      input.name = f.name;
+      if (f.grow) input.classList.add("grow");
+      form.appendChild(input);
+    });
+    const save = el("button", "btn btn-primary", "Save");
+    save.type = "submit";
+    form.appendChild(save);
+    form.addEventListener("submit", (e) => { e.preventDefault(); submitAdd(type, form); });
+    return form;
+  }
+
+  async function submitAdd(type, form) {
+    const spec = ADD_SPECS[type];
+    const body = {};
+    spec.fields.forEach((f) => {
+      const node = form.elements[f.name];
+      let val = node.value;
+      if (f.type === "number") val = val === "" ? null : parseFloat(val);
+      else if (f.type === "date") val = val || null;
+      else val = (val || "").trim();
+      body[f.name] = val;
+    });
+    for (const r of (spec.required || [])) {
+      if (body[r] == null || body[r] === "") { toast("Please fill in " + r.replace(/_/g, " ")); return; }
+    }
+    try {
+      await api(`/api/projects/${state.projectId}/${type}`,
+        { method: "POST", body: JSON.stringify(body) });
+      toast("Saved");
+      await refreshDashboard();
+    } catch (e) { toast(e.message); }
+  }
+
   async function renderList(container, pid, type, title, rowFn) {
     const rows = await api(`/api/projects/${pid}/${type}`);
     const panel = el("div", "panel");
-    panel.appendChild(el("h3", null, esc(title)));
+
+    const head = el("div", "panel-head");
+    head.appendChild(el("h3", null, esc(title)));
+    const form = buildAddForm(type);
+    const addBtn = el("button", "btn-add", "＋ " + ADD_SPECS[type].label);
+    addBtn.onclick = () => {
+      const open = form.classList.toggle("open");
+      if (open) { const first = form.querySelector("input,select,textarea"); if (first) first.focus(); }
+    };
+    head.appendChild(addBtn);
+    panel.appendChild(head);
+    panel.appendChild(form);
+
     if (!rows.length) {
-      panel.appendChild(el("div", "empty-list",
-        "Nothing yet — tell the assistant and it will appear here."));
+      panel.appendChild(el("div", "empty-list", "Nothing yet — tap “＋ " + ADD_SPECS[type].label + "”."));
     } else {
       const list = el("div", "record-list");
       rows.forEach((r) => list.appendChild(rowFn(r, type)));
@@ -196,6 +331,7 @@
     const main = el("div", "main");
     main.appendChild(el("div", "title", opts.title));
     if (opts.meta) main.appendChild(el("div", "meta", opts.meta));
+    if (opts.controls) main.appendChild(opts.controls);
     row.appendChild(main);
     if (opts.amount != null) {
       row.appendChild(el("div", "amount" + (opts.out ? " out" : ""), opts.amount));
@@ -207,6 +343,55 @@
       row.appendChild(b);
     }
     return row;
+  }
+
+  // tap-to-update controls -------------------------------------------------
+  const MS_STATES = [
+    ["not_started", "To-do", "gray"],
+    ["in_progress", "Active", "blue"],
+    ["blocked", "Blocked", "red"],
+    ["done", "Done", "green"],
+  ];
+  function milestoneControls(r) {
+    const wrap = el("div", "stat-ctrl");
+    MS_STATES.forEach(([val, label, color]) => {
+      const on = r.status === val;
+      const b = el("button", "sbtn" + (on ? " on " + color : ""), esc(label));
+      if (!on) b.onclick = () => setMilestoneStatus(r.id, val);
+      wrap.appendChild(b);
+    });
+    return wrap;
+  }
+  async function setMilestoneStatus(id, status) {
+    try {
+      await api(`/api/projects/${state.projectId}/milestones/${id}`,
+        { method: "PATCH", body: JSON.stringify({ status }) });
+      toast("Stage updated");
+      await refreshDashboard();
+    } catch (e) { toast(e.message); }
+  }
+
+  function issueControls(r) {
+    const wrap = el("div", "stat-ctrl");
+    if (r.status === "open") {
+      const b = el("button", "sbtn on green", "✓ Mark resolved");
+      b.onclick = () => setIssueResolved(r.id, true);
+      wrap.appendChild(b);
+    } else {
+      const b = el("button", "sbtn", "↺ Reopen");
+      b.onclick = () => setIssueResolved(r.id, false);
+      wrap.appendChild(b);
+    }
+    return wrap;
+  }
+  async function setIssueResolved(id, resolve) {
+    try {
+      const resolution = resolve ? (prompt("How was it resolved? (optional)") || "") : "";
+      await api(`/api/projects/${state.projectId}/issues/${id}`,
+        { method: "PATCH", body: JSON.stringify({ status: resolve ? "resolved" : "open", resolution }) });
+      toast(resolve ? "Issue resolved" : "Issue reopened");
+      await refreshDashboard();
+    } catch (e) { toast(e.message); }
   }
 
   const expenseRow = (r) => recordRow({
@@ -230,6 +415,7 @@
       r.target_date ? "target " + dateStr(r.target_date) : "",
       r.completed_date ? "done " + dateStr(r.completed_date) : "",
     ].filter(Boolean).join(" · "),
+    controls: milestoneControls(r),
     del: { type: "milestones", id: r.id },
   });
 
@@ -252,6 +438,7 @@
       r.resolved_on ? "resolved " + dateStr(r.resolved_on) : "",
       r.resolution ? "→ " + esc(r.resolution) : "",
     ].filter(Boolean).join(" · "),
+    controls: issueControls(r),
     del: { type: "issues", id: r.id },
   });
 
@@ -322,7 +509,7 @@
     log.innerHTML = "";
     const greeting = state.aiEnabled
       ? "Hi! Tell me what's happening on site and I'll log it. Try:\n“Bought 50 bags of cement for 600, paid cash” or ask “How much have I spent so far?”"
-      : "The assistant is offline — set ANTHROPIC_API_KEY on the server to enable it. You can still view and delete records.";
+      : "The assistant is offline — set ANTHROPIC_API_KEY on the server to enable it. You can still add, update and delete everything by hand using the ＋ Add buttons and the stage controls.";
     log.appendChild(msgNode(state.aiEnabled ? "bot" : "note", greeting));
     $("#chat-input").disabled = !state.aiEnabled;
     $("#chat-send").disabled = !state.aiEnabled;

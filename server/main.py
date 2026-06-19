@@ -50,6 +50,64 @@ class ChatIn(BaseModel):
     history: list[dict] = []
 
 
+# --- manual entry / edit (no AI needed) ------------------------------------- #
+class MilestoneIn(BaseModel):
+    name: str
+    description: str = ""
+    status: str = "not_started"
+    target_date: Optional[str] = None
+
+
+class MilestonePatch(BaseModel):
+    status: Optional[str] = None
+    description: Optional[str] = None
+    target_date: Optional[str] = None
+    completed_date: Optional[str] = None
+
+
+class ExpenseIn(BaseModel):
+    amount: float
+    description: str = ""
+    category: str = "general"
+    vendor: str = ""
+    spent_on: Optional[str] = None
+    payment_status: str = "paid"
+
+
+class PaymentIn(BaseModel):
+    artisan_name: str
+    amount: float
+    description: str = ""
+    paid_on: Optional[str] = None
+    status: str = "paid"
+    trade: str = ""
+
+
+class ArtisanIn(BaseModel):
+    name: str
+    trade: str = ""
+    phone: str = ""
+    agreed_rate: Optional[float] = None
+    notes: str = ""
+
+
+class IssueIn(BaseModel):
+    title: str
+    description: str = ""
+    severity: str = "medium"
+
+
+class IssuePatch(BaseModel):
+    status: Optional[str] = None  # "resolved" or "open"
+    resolution: str = ""
+
+
+class NoteIn(BaseModel):
+    title: str
+    content: str = ""
+    category: str = "general"
+
+
 # --------------------------------------------------------------------------- #
 # Projects
 # --------------------------------------------------------------------------- #
@@ -153,6 +211,99 @@ def delete_record(project_id: int, table: str, record_id: int):
     if not db.delete_record(table, record_id, project_id):
         raise HTTPException(404, "Record not found or not deletable.")
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Manual create / update (works without the AI assistant)
+# --------------------------------------------------------------------------- #
+@app.post("/api/projects/{project_id}/milestones")
+def post_milestone(project_id: int, body: MilestoneIn):
+    _require_project(project_id)
+    if not body.name.strip():
+        raise HTTPException(400, "Milestone name is required.")
+    return db.add_milestone(project_id, name=body.name.strip(),
+                            description=body.description, status=body.status,
+                            target_date=body.target_date)
+
+
+@app.patch("/api/projects/{project_id}/milestones/{milestone_id}")
+def patch_milestone(project_id: int, milestone_id: int, body: MilestonePatch):
+    _require_project(project_id)
+    m = db.get_milestone(milestone_id)
+    if not m or m["project_id"] != project_id:
+        raise HTTPException(404, "Milestone not found.")
+    completed = body.completed_date
+    # Clear a stale completion date when moving a milestone back out of "done".
+    if body.status and body.status != "done":
+        completed = ""
+    return db.update_milestone(milestone_id, status=body.status,
+                               description=body.description,
+                               target_date=body.target_date,
+                               completed_date=completed)
+
+
+@app.post("/api/projects/{project_id}/expenses")
+def post_expense(project_id: int, body: ExpenseIn):
+    _require_project(project_id)
+    return db.add_expense(project_id, amount=body.amount,
+                          description=body.description, category=body.category or "general",
+                          vendor=body.vendor, spent_on=body.spent_on,
+                          payment_status=body.payment_status or "paid")
+
+
+@app.post("/api/projects/{project_id}/payments")
+def post_payment_manual(project_id: int, body: PaymentIn):
+    _require_project(project_id)
+    if not body.artisan_name.strip():
+        raise HTTPException(400, "Worker name is required.")
+    artisan = db.find_artisan(project_id, body.artisan_name)
+    if artisan is None:
+        artisan = db.add_artisan(project_id, name=body.artisan_name.strip(),
+                                 trade=body.trade or "")
+    return db.record_payment(project_id, amount=body.amount,
+                             artisan_name=artisan["name"], artisan_id=artisan["id"],
+                             description=body.description, paid_on=body.paid_on,
+                             status=body.status or "paid")
+
+
+@app.post("/api/projects/{project_id}/artisans")
+def post_artisan(project_id: int, body: ArtisanIn):
+    _require_project(project_id)
+    if not body.name.strip():
+        raise HTTPException(400, "Worker name is required.")
+    return db.add_artisan(project_id, name=body.name.strip(), trade=body.trade,
+                          phone=body.phone, agreed_rate=body.agreed_rate, notes=body.notes)
+
+
+@app.post("/api/projects/{project_id}/issues")
+def post_issue(project_id: int, body: IssueIn):
+    _require_project(project_id)
+    if not body.title.strip():
+        raise HTTPException(400, "Issue title is required.")
+    return db.add_issue(project_id, title=body.title.strip(),
+                        description=body.description, severity=body.severity or "medium")
+
+
+@app.patch("/api/projects/{project_id}/issues/{issue_id}")
+def patch_issue(project_id: int, issue_id: int, body: IssuePatch):
+    _require_project(project_id)
+    it = db.get_issue(issue_id)
+    if not it or it["project_id"] != project_id:
+        raise HTTPException(404, "Issue not found.")
+    if body.status == "resolved":
+        return db.resolve_issue(issue_id, body.resolution or "")
+    if body.status == "open":
+        return db.reopen_issue(issue_id)
+    raise HTTPException(400, "status must be 'resolved' or 'open'.")
+
+
+@app.post("/api/projects/{project_id}/notes")
+def post_note(project_id: int, body: NoteIn):
+    _require_project(project_id)
+    if not body.title.strip():
+        raise HTTPException(400, "Note title is required.")
+    return db.add_note(project_id, title=body.title.strip(),
+                       content=body.content, category=body.category or "general")
 
 
 # --------------------------------------------------------------------------- #

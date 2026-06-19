@@ -90,8 +90,11 @@ uvicorn server.main:app --reload
 Go to **http://localhost:8000**, create a project, and start typing in the
 assistant panel.
 
-> The dashboard works even without an API key — you just won't be able to use the
-> natural-language assistant until `ANTHROPIC_API_KEY` is set.
+> The whole dashboard works **without an API key**: use the **＋ Add** button on
+> each tab to log expenses, payments, stages, issues and notes by hand, and tap a
+> stage's status buttons (To-do / Active / Blocked / Done) or an issue's **Mark
+> resolved** to update it. Setting `ANTHROPIC_API_KEY` just adds the option to do
+> all of this by typing in plain English instead.
 
 ---
 
@@ -142,8 +145,9 @@ uvicorn server.main:app --host 0.0.0.0 --port 8000
 
 - **Multiple projects** are supported — switch between them with the selector in
   the top bar.
-- **Corrections:** every record on the dashboard has a 🗑 button if the assistant
-  logs something wrong.
+- **Manual entry & edits:** every tab has a **＋ Add** button, stages have tap-to-set
+  status buttons, and issues have **Mark resolved** — so you never need the AI to
+  keep things up to date. Every record also has a 🗑 button to remove it.
 - **Your data stays local** in `data/tracker.db`. Back it up by copying that file.
   It's git-ignored by default so you don't accidentally commit project finances.
 - **Currency** is set per project; the assistant formats amounts with your symbol.

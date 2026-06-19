@@ -208,9 +208,10 @@
         <div class="v" id="st-contract">₦5,294,050</div>
       </div>
       <div class="stat">
-        <div class="k">Paid to contractor</div>
+        <div class="k">Received from client</div>
         <div class="v" id="st-paid">₦0</div>
         <div class="bar"><i id="st-paid-bar" style="width:0%"></i></div>
+        <div class="muted" style="font-size:12px;margin-top:4px" id="st-paid-sub">of ₦5,294,050</div>
       </div>
       <div class="stat">
         <div class="k">Spent of budget</div>
@@ -248,9 +249,15 @@
       <div class="sec-head"><h2><span class="dot"></span>Contract & payments</h2></div>
       <div class="card pad">
         <div id="breakdown"></div>
-        <h3 style="font-size:13px;margin:16px 0 2px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Payment schedule</h3>
-        <div id="payments"></div>
-        <label class="mat" style="border-top:1px solid var(--line);margin-top:8px;padding-top:12px">
+        <h3 style="font-size:13px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Client payments (received)</h3>
+        <div id="client-payments"></div>
+        <div class="addform" style="padding:10px 0 2px">
+          <input id="cp-amt" type="number" min="0" step="any" placeholder="₦ amount received" class="grow" />
+          <input id="cp-date" type="date" />
+          <button class="btn btn-gold" id="cp-add">Log payment</button>
+        </div>
+        <div id="cp-summary"></div>
+        <label class="mat" style="border-top:1px solid var(--line);margin-top:10px;padding-top:12px">
           <input type="checkbox" id="felting" />
           <span class="nm">Optional: felting of pool walls (waterproof membrane)</span>
           <span class="q">+₦275,000</span>
@@ -358,10 +365,15 @@ const SEED = {
     ["Contingency (3%)", 140550],
     ["Overheads & profit (10%)", 468500],
   ],
+  // agreed installment guide (60/30/10 of the contract) — shown for reference only
   payments: [
-    {label:"Mobilization (60%)", pct:0.60, paid:false, date:""},
-    {label:"Casting & waterproofing (30%)", pct:0.30, paid:false, date:""},
-    {label:"Completion, testing & handover (10%)", pct:0.10, paid:false, date:""},
+    {label:"Mobilization (60%)", pct:0.60},
+    {label:"Casting & waterproofing (30%)", pct:0.30},
+    {label:"Completion, testing & handover (10%)", pct:0.10},
+  ],
+  // actual money received from the client
+  clientPayments: [
+    {id:1, amount:3000000, date:""},
   ],
   felting:false,
   materials: [
@@ -392,7 +404,7 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 function contractSum(){ return CONTRACT_BASE + (data.felting ? FELTING : 0); }
 
 function render(){
-  renderHero(); renderBudget(); renderStages(); renderBreakdown(); renderPayments();
+  renderHero(); renderBudget(); renderStages(); renderBreakdown(); renderClientPayments();
   renderMaterials(); renderExpenses(); renderIssues();
   document.getElementById("felting").checked = data.felting;
 }
@@ -442,9 +454,10 @@ function renderHero(){
   document.getElementById("st-stages").innerHTML = done+' <small>/ '+data.stages.length+'</small>';
   document.getElementById("st-contract").textContent = NGN(contractSum());
 
-  const paid = data.payments.filter(p=>p.paid).reduce((a,p)=>a+p.pct*contractSum(),0);
-  document.getElementById("st-paid").textContent = NGN(paid);
-  document.getElementById("st-paid-bar").style.width = Math.min(100, paid/contractSum()*100)+"%";
+  const received = data.clientPayments.reduce((a,p)=>a+(+p.amount||0),0);
+  document.getElementById("st-paid").textContent = NGN(received);
+  document.getElementById("st-paid-bar").style.width = Math.min(100, received/contractSum()*100)+"%";
+  document.getElementById("st-paid-sub").textContent = "of "+NGN(contractSum());
 
   const spend = data.expenses.reduce((a,e)=>a+(+e.amt||0),0);
   document.getElementById("st-spend").textContent = NGN(spend);
@@ -503,16 +516,28 @@ function renderBreakdown(){
   el.innerHTML = rows;
 }
 
-function renderPayments(){
-  const el=document.getElementById("payments");
-  el.innerHTML = data.payments.map((p,i)=>{
-    const amt = p.pct*contractSum();
-    return `<div class="pay ${p.paid?'paid':''}">
-      <div class="check" onclick="togglePay(${i})">✓</div>
-      <div class="m"><div class="t">${esc(p.label)}</div>
-        <div class="s">${NGN(amt)}${p.paid&&p.date?" · paid "+fmtDate(p.date):p.paid?" · paid":""}</div></div>
-    </div>`;
-  }).join("");
+function renderClientPayments(){
+  const cs = contractSum();
+  const received = data.clientPayments.reduce((a,p)=>a+(+p.amount||0),0);
+  const spent = data.expenses.reduce((a,e)=>a+(+e.amt||0),0);
+
+  const list = data.clientPayments.map((p,i)=>`<div class="row">
+    <div class="m"><div class="t">Payment ${i+1}${p.date?'<span class="muted" style="font-weight:400"> · '+fmtDate(p.date)+'</span>':''}</div></div>
+    <div class="amt" style="color:var(--green)">${NGN(p.amount)}</div>
+    <button class="del" title="Remove" onclick="delClientPayment(${p.id})">✕</button>
+  </div>`).join("");
+  document.getElementById("client-payments").innerHTML =
+    list || '<div class="muted" style="padding:6px 0;font-size:13px">No payments logged yet.</div>';
+
+  const bal = cs - received;
+  const guide = data.payments.map(p=>p.label.replace(/ \(\d+%\)/,'')+" "+NGN(p.pct*cs)).join(" · ");
+  document.getElementById("cp-summary").innerHTML =
+    `<div class="row" style="border-top:2px solid var(--navy)">
+       <div class="m"><div class="t" style="font-weight:800">Received of ${NGN(cs)}</div>
+         <div class="muted" style="font-size:12px">Balance due ${NGN(Math.max(0,bal))} · after spend, cash in hand ${NGN(received-spent)}</div></div>
+       <div class="amt" style="color:var(--green);font-size:17px">${NGN(received)}</div>
+     </div>
+     <div class="muted" style="font-size:11.5px;margin-top:8px">Agreed installments — ${guide}</div>`;
 }
 
 function renderMaterials(){
@@ -570,9 +595,18 @@ function stageDate(id,v){ data.stages.find(x=>x.id===id).date=v; save(); renderS
 function stageNote(id,v){ data.stages.find(x=>x.id===id).note=v.trim(); save(); }
 function reopen(id){ setTimeout(()=>{const e=document.querySelector(`.stage[data-id="${id}"]`); if(e)e.classList.add("open");},0); }
 
-function togglePay(i){
-  const p=data.payments[i]; p.paid=!p.paid; p.date=p.paid?today():"";
-  save(); renderPayments(); renderHero();
+let cpId = Math.max(0, ...data.clientPayments.map(p=>p.id||0));
+document.getElementById("cp-add").onclick=()=>{
+  const amt=parseFloat(document.getElementById("cp-amt").value);
+  if(!(amt>0)||isNaN(amt)){ toast("Enter the amount received"); return; }
+  data.clientPayments.push({id:++cpId, amount:amt, date:document.getElementById("cp-date").value||today()});
+  save(); renderClientPayments(); renderHero();
+  document.getElementById("cp-amt").value="";
+  toast("Payment logged");
+};
+function delClientPayment(id){
+  data.clientPayments=data.clientPayments.filter(p=>p.id!==id);
+  save(); renderClientPayments(); renderHero();
 }
 function toggleMat(id){ const m=data.materials.find(x=>x.id===id); m.got=!m.got; save(); renderMaterials(); }
 
@@ -603,6 +637,7 @@ function delIssue(u){ data.issues=data.issues.filter(i=>i.uid!==u); save(); rend
 
 /* enter-to-add */
 document.getElementById("e-amt").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("e-add").click();});
+document.getElementById("cp-amt").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("cp-add").click();});
 document.getElementById("i-text").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("i-add").click();});
 
 /* backup / restore */

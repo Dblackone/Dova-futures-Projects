@@ -22,10 +22,12 @@ except Exception:  # python-dotenv is optional
 
 from . import db
 from . import agent
+from . import seed
 
 app = FastAPI(title="Construction Project Tracker")
 
 db.init_db()
+seed.maybe_seed()  # pre-load the Ibafo pool on a fresh database (SEED_POOL=0 to skip)
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web")
 

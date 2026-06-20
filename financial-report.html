@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Financial Report — Pool, Ibafo · INTERNAL</title>
+<style>
+  :root{
+    --navy:#16243f; --gold:#c8a24a; --gold-dk:#a9842f; --ink:#1d2733; --muted:#6b7787;
+    --line:#e1e5ea; --bg:#f4f6f9; --card:#fff;
+    --green:#2f9e6f; --green-bg:#e4f4ec; --amber:#d9822b; --amber-bg:#fbecd9;
+    --red:#d64545; --red-bg:#fbe6e6;
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+  .sheet{max-width:900px;margin:18px auto;background:var(--card);box-shadow:0 8px 30px rgba(22,36,63,.1)}
+  h1,h2,h3{margin:0}
+
+  .bar{max-width:900px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap;padding:14px 8px 0}
+  .b{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer}
+  .b:hover{border-color:var(--muted)}
+  .b.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .hint{color:var(--muted);font-size:12px;align-self:center;margin-left:auto}
+
+  .conf{background:var(--red-bg);color:var(--red);text-align:center;font-size:11.5px;font-weight:800;
+    letter-spacing:1.5px;text-transform:uppercase;padding:6px}
+  .head{border-top:5px solid var(--gold);background:var(--navy);color:#fff;padding:22px 32px}
+  .head .co{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700}
+  .head .motto{font-size:12px;color:#aab4c4;font-style:italic;margin-top:2px}
+  .head h1{font-size:23px;margin-top:14px}
+  .head .doc{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-top:4px}
+
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2px 22px;
+    padding:14px 32px;border-bottom:1px solid var(--line);background:#fbfcfd;font-size:13px}
+  .meta b{color:var(--muted);font-weight:600;display:inline-block;min-width:78px}
+  .ed{border-bottom:1px dashed var(--line);cursor:text;padding:0 2px}
+
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+  .summary .cell{padding:16px 18px;border-right:1px solid var(--line)}
+  .summary .cell:last-child{border-right:none}
+  .summary .k{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .summary .v{font-size:21px;font-weight:800;color:var(--navy);margin-top:4px}
+  .summary .v.good{color:var(--green)} .summary .v.bad{color:var(--red)}
+  .summary .sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+  .pad{padding:22px 32px}
+  .sec-title{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-dk);font-weight:800;margin:0 0 12px}
+  .sec-title.mt{margin-top:26px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-size:11px;letter-spacing:.4px;text-transform:uppercase;font-weight:700}
+  th.r,td.r{text-align:right}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line)}
+  tbody tr:nth-child(even){background:#fbfcfd}
+  tfoot td{padding:11px 10px;border-top:2px solid var(--navy);font-weight:800}
+  .nm{font-weight:600}
+  .sub2{color:var(--muted);font-size:12px}
+  .bar-cell{width:120px}
+  .mini{height:7px;background:var(--line);border-radius:5px;overflow:hidden}
+  .mini > i{display:block;height:100%;background:var(--gold);border-radius:5px}
+  .mini > i.full{background:var(--green)}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+
+  .position{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:#fbfcfd;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:18px}
+  .position .big{font-size:24px;font-weight:800;color:var(--navy)}
+  .position p{margin:0;color:var(--muted);font-size:12.5px;max-width:520px;line-height:1.6}
+
+  .foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--muted);
+    border-top:3px solid var(--gold);padding:14px 32px;background:#fbfcfd}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;
+    padding:10px 18px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1}
+
+  @media print{
+    body{background:#fff}
+    .bar,.hint{display:none !important}
+    .sheet{box-shadow:none;margin:0;max-width:none}
+    thead th,.head,.conf{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+  @media(max-width:680px){.summary{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <button class="b primary" onclick="window.print()">🖨 Save as PDF</button>
+  <button class="b" id="import-btn">⤒ Load from tracker backup</button>
+  <input type="file" id="import-file" accept="application/json" hidden />
+  <span class="hint">Internal document — keep figures off anything sent to the client.</span>
+</div>
+
+<div class="sheet">
+  <div class="conf">Confidential · Internal use only · Not for client distribution</div>
+  <div class="head">
+    <div class="co">Dova Futures Limited</div>
+    <div class="motto">Designing Futures. Building Realities.</div>
+    <h1>Swimming Pool — Ibafo, Ogun State</h1>
+    <div class="doc">Financial Report · position to date</div>
+  </div>
+
+  <div class="meta">
+    <div><b>Project</b> Pool construction, Ibafo</div>
+    <div><b>Ref</b> DFL/QT/2026/POOL-001</div>
+    <div><b>Report date</b> <span class="ed" id="m-date" contenteditable="true"></span></div>
+    <div><b>Contract</b> ₦5,294,050 (client)</div>
+  </div>
+
+  <div class="summary">
+    <div class="cell"><div class="k">Received from client</div><div class="v" id="s-in">₦0</div><div class="sub" id="s-in-sub"></div></div>
+    <div class="cell"><div class="k">Paid out to trades</div><div class="v" id="s-out">₦0</div><div class="sub" id="s-out-sub"></div></div>
+    <div class="cell"><div class="k">Profit taken</div><div class="v" id="s-profit">₦0</div><div class="sub">drawn so far</div></div>
+    <div class="cell"><div class="k">Cash in hand</div><div class="v good" id="s-cash">₦0</div><div class="sub">received − profit − paid out</div></div>
+  </div>
+
+  <div class="pad">
+    <!-- MONEY IN -->
+    <div class="sec-title">Money in — client payments</div>
+    <table>
+      <thead><tr><th>Payment</th><th>Date</th><th class="r">Amount</th></tr></thead>
+      <tbody id="in-rows"></tbody>
+      <tfoot>
+        <tr><td colspan="2">Received of ₦5,294,050 contract</td><td class="r" id="in-total">₦0</td></tr>
+        <tr><td colspan="2" class="sub2" style="font-weight:600">Balance still due from client</td><td class="r sub2" id="in-bal" style="font-weight:700">₦0</td></tr>
+      </tfoot>
+    </table>
+
+    <!-- MONEY OUT -->
+    <div class="sec-title mt">Money out — by trade (budget vs paid)</div>
+    <table>
+      <thead><tr><th>Trade</th><th class="r">Budget</th><th class="r">Paid</th><th class="r">To pay</th><th class="bar-cell">Progress</th></tr></thead>
+      <tbody id="out-rows"></tbody>
+      <tfoot>
+        <tr><td>Total</td><td class="r" id="out-budget">₦0</td><td class="r" id="out-paid">₦0</td><td class="r" id="out-left">₦0</td><td></td></tr>
+      </tfoot>
+    </table>
+
+    <!-- PROFIT -->
+    <div class="sec-title mt">Profit drawn</div>
+    <table>
+      <thead><tr><th>Item</th><th>Date</th><th class="r">Amount</th></tr></thead>
+      <tbody id="profit-rows"></tbody>
+      <tfoot><tr><td colspan="2">Total profit taken</td><td class="r" id="profit-total">₦0</td></tr></tfoot>
+    </table>
+
+    <!-- POSITION -->
+    <div class="position">
+      <div><div class="sub2" style="text-transform:uppercase;letter-spacing:.5px;font-size:11px">Cash position</div>
+        <div class="big" id="pos-cash">₦0</div></div>
+      <p id="pos-note"></p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Dova Futures Limited · Lagos, Nigeria</span>
+    <span>Confidential — internal financial report</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const NGN = n => "₦" + Math.round(n||0).toLocaleString("en-NG");
+const fmtDate = d => d ? new Date(d+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—";
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+const CONTRACT = 5294050;
+const BUDGET = [
+  {key:"Masonry",       label:"Masonry job",               expected:650000},
+  {key:"Carpentry",     label:"Carpenter (formwork)",      expected:100000},
+  {key:"Reinforcement", label:"Reinforcement jobs",        expected:120000},
+  {key:"MEP",           label:"MEP works",                 expected:2000000},
+  {key:"Tiling",        label:"Tiling works",              expected:250000},
+  {key:"Logistics",     label:"Logistics & miscellaneous", expected:100000},
+];
+
+// Current position (baked in). "Load from tracker backup" replaces this live.
+let DATA = {
+  clientPayments:[{label:"1st payment", amount:3000000, date:""}],
+  profit:[{amount:600000, date:"", note:"Profit from 1st client payment"}],
+  expenses:[
+    {cat:"Masonry", desc:"Masonry — advance",    amt:250000},
+    {cat:"MEP",     desc:"MEP — advance payment", amt:1200000},
+  ],
+  date: todayISO(),
+};
+
+function paidByCat(){
+  const keys = BUDGET.map(b=>b.key);
+  const out = {}; BUDGET.forEach(b=>out[b.key]=0);
+  (DATA.expenses||[]).forEach(e=>{ const k = keys.includes(e.cat)?e.cat:"Logistics"; out[k]+=(+e.amt||0); });
+  return out;
+}
+
+function render(){
+  document.getElementById("m-date").textContent = fmtDate(DATA.date || todayISO());
+
+  const received = (DATA.clientPayments||[]).reduce((a,p)=>a+(+p.amount||0),0);
+  const profit   = (DATA.profit||[]).reduce((a,p)=>a+(+p.amount||0),0);
+  const paid      = (DATA.expenses||[]).reduce((a,e)=>a+(+e.amt||0),0);
+  const cash = received - profit - paid;
+
+  // summary
+  document.getElementById("s-in").textContent = NGN(received);
+  document.getElementById("s-in-sub").textContent = Math.round(received/CONTRACT*100)+"% of contract";
+  document.getElementById("s-out").textContent = NGN(paid);
+  const budgetTotal = BUDGET.reduce((a,b)=>a+b.expected,0);
+  document.getElementById("s-out-sub").textContent = "of "+NGN(budgetTotal)+" budget";
+  document.getElementById("s-profit").textContent = NGN(profit);
+  const cashEl = document.getElementById("s-cash");
+  cashEl.textContent = NGN(cash); cashEl.className = "v " + (cash<0?"bad":"good");
+
+  // money in
+  document.getElementById("in-rows").innerHTML = (DATA.clientPayments||[]).map((p,i)=>
+    `<tr><td class="nm">${esc(p.label||("Payment "+(i+1)))}</td><td>${fmtDate(p.date)}</td><td class="r">${NGN(p.amount)}</td></tr>`
+  ).join("") || `<tr><td colspan="3" class="sub2">No payments recorded.</td></tr>`;
+  document.getElementById("in-total").textContent = NGN(received);
+  document.getElementById("in-bal").textContent = NGN(Math.max(0, CONTRACT - received));
+
+  // money out
+  const pc = paidByCat();
+  document.getElementById("out-rows").innerHTML = BUDGET.map(b=>{
+    const p = pc[b.key], left = b.expected-p, pct = b.expected?Math.min(100,p/b.expected*100):0;
+    const full = p>=b.expected;
+    return `<tr>
+      <td class="nm">${b.label}</td>
+      <td class="r">${NGN(b.expected)}</td>
+      <td class="r">${p?NGN(p):'<span class="sub2">—</span>'}</td>
+      <td class="r ${left>0?'':'pos'}">${left>0?NGN(left):'✓'}</td>
+      <td class="bar-cell"><div class="mini"><i class="${full?'full':''}" style="width:${pct}%"></i></div></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("out-budget").textContent = NGN(budgetTotal);
+  document.getElementById("out-paid").textContent = NGN(paid);
+  document.getElementById("out-left").textContent = NGN(budgetTotal - paid);
+
+  // profit
+  document.getElementById("profit-rows").innerHTML = (DATA.profit||[]).map((p,i)=>
+    `<tr><td class="nm">${esc(p.note||("Profit "+(i+1)))}</td><td>${fmtDate(p.date)}</td><td class="r">${NGN(p.amount)}</td></tr>`
+  ).join("") || `<tr><td colspan="3" class="sub2">No profit drawn.</td></tr>`;
+  document.getElementById("profit-total").textContent = NGN(profit);
+
+  // position
+  document.getElementById("pos-cash").textContent = NGN(cash);
+  const toPay = budgetTotal - paid;
+  const dueIn = Math.max(0, CONTRACT - received);
+  document.getElementById("pos-note").textContent =
+    `You hold ${NGN(cash)} cash. Remaining work is budgeted at ${NGN(toPay)}; the client still owes `
+    + `${NGN(dueIn)}, which together with cash in hand covers the rest of the build with margin to spare.`;
+}
+
+document.getElementById("import-btn").onclick = ()=>document.getElementById("import-file").click();
+document.getElementById("import-file").onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const d=JSON.parse(r.result);
+    DATA = {
+      clientPayments: d.clientPayments||[],
+      profit: d.profit||[],
+      expenses: d.expenses||[],
+      date: todayISO(),
+    };
+    render(); toast("Loaded current figures from tracker");
+  }catch(err){ toast("Couldn't read that backup file"); } };
+  r.readAsText(f);
+};
+document.getElementById("m-date").addEventListener("blur",e=>{
+  const t=e.target.textContent.trim(); const dt=new Date(t);
+  if(!isNaN(dt)) DATA.date=dt.toISOString().slice(0,10);
+  render();
+});
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+let tm; function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove("show"),2000); }
+
+render();
+</script>
+</body>
+</html>

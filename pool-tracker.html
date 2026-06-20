@@ -355,6 +355,7 @@ const BUDGET = [
 const BUDGET_TOTAL = BUDGET.reduce((a,b)=>a+b.expected,0);  // ₦3,220,000
 
 const SEED = {
+  seedVersion: 2,   // bump when the seeded money figures change, to refresh them on load
   stages: [
     "Excavation & blinding (same day)",
     "MEP site examination & laying of drain pipe",
@@ -397,12 +398,10 @@ const SEED = {
     ["Sharp Sand","As required"],["Granite","As required"],
     ["Plaster Sand","As required"],["Mosaic / coping tiles","As required"],
   ].map((m,i)=>({id:i+1,name:m[0],qty:m[1],got:false})),
-  // money paid out, by budget category (from the 1st payment plan)
+  // money actually paid out so far, by budget category
   expenses: [
-    {uid:"seed-mason", desc:"Masonry — settled in full",             cat:"Masonry",       amt:650000,  date:""},
-    {uid:"seed-carp",  desc:"Carpenter (formwork) — settled in full", cat:"Carpentry",     amt:100000,  date:""},
-    {uid:"seed-rebar", desc:"Reinforcement — settled in full",        cat:"Reinforcement", amt:120000,  date:""},
-    {uid:"seed-mep",   desc:"MEP — advance payment",                  cat:"MEP",           amt:1400000, date:""},
+    {uid:"seed-mason", desc:"Masonry — advance",       cat:"Masonry", amt:250000,  date:""},
+    {uid:"seed-mep",   desc:"MEP — advance payment",    cat:"MEP",     amt:1200000, date:""},
   ],
   // profit you've drawn from client payments (kept separate from project spend)
   profit: [
@@ -426,6 +425,12 @@ function load(){
       else if(v && typeof v === "object"){ base[k] = Object.assign(base[k]||{}, v); }
       else { base[k] = v; }
     });
+    // When the seeded money figures are corrected, refresh the paid-out list from
+    // SEED (keeping stage progress, materials, etc. as-is).
+    if((d.seedVersion||0) < SEED.seedVersion){
+      base.expenses = structuredClone(SEED.expenses);
+      base.seedVersion = SEED.seedVersion;
+    }
   }catch(e){}
   return base;
 }

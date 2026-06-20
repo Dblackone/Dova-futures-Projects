@@ -52,10 +52,11 @@ NOTES: list[tuple[str, str, str]] = [
      "MEP works N2,000,000 | Tiling works N250,000 | Logistics & miscellaneous N100,000 | "
      "TOTAL EXPECTED N3,220,000. (Your planned outlay by trade, separate from the "
      "contractor's N5,294,050 quote.)"),
-    ("general", "Cash plan — 1st client payment",
-     "Received N3,000,000. Allocation: profit taken N600,000 | MEP advance N1,400,000 | "
-     "civil works settled in full N870,000 (masonry 650k + carpenter 100k + reinforcement "
-     "120k) | cash remaining N130,000. Client balance still due N2,294,050."),
+    ("general", "Cash position — 1st client payment",
+     "Received N3,000,000. Paid so far: profit taken N600,000 | MEP advance N1,200,000 | "
+     "masonry advance N250,000. Cash in hand N950,000. Still to pay: masonry balance 400k, "
+     "carpenter 100k, reinforcement 120k, MEP balance 800k, tiling 250k, logistics 100k. "
+     "Client balance still due N2,294,050."),
     ("material", "Materials to supply (client supply)",
      '9" blocks 350-500 | cement 130-160 bags | marine boards 20 | 2x3 timber 90 lengths | '
      "nails 3 bags | waterproofing powder 1 bag + liquid 1 keg | 10mm rebar 50 + 12mm rebar 50 | "

@@ -269,20 +269,122 @@ def scrape_uk(term, session, debug=False):
 
 
 # ----------------------------------------------------------- Firecrawl -----
-def scrape_firecrawl(url, api_key):
-    """Fallback for Cloudflare-protected pages. Returns markdown text."""
-    try:
-        from firecrawl import FirecrawlApp
-    except ImportError:
-        print("    ! pip install firecrawl-py")
-        return None
-    try:
-        app = FirecrawlApp(api_key=api_key)
-        res = app.scrape_url(url, params={"formats": ["markdown"]})
-        return res.get("markdown") if isinstance(res, dict) else None
-    except Exception as e:
-        print(f"    ! firecrawl: {e}")
-        return None
+FC_BASE = "https://api.firecrawl.dev/v2"
+
+
+class Firecrawl:
+    """Thin REST client - no SDK dependency, just requests.
+
+    Used when the target sites block plain HTTP (Cloudflare, bot walls) or
+    when you would rather let Firecrawl handle rendering. Firecrawl's servers
+    do the fetching, so this also works from networks that cannot reach the
+    stores directly.
+    """
+
+    def __init__(self, api_key, debug=False):
+        self.key = api_key
+        self.debug = debug
+        self.s = requests.Session()
+
+    def _post(self, path, payload):
+        try:
+            r = self.s.post(f"{FC_BASE}{path}",
+                            headers={"Authorization": f"Bearer {self.key}",
+                                     "Content-Type": "application/json"},
+                            json=payload, timeout=90)
+        except requests.RequestException as e:
+            print(f"    ! firecrawl unreachable: {e}")
+            return None
+        if r.status_code == 401:
+            print("    ! firecrawl 401 - check FIRECRAWL_API_KEY")
+            return None
+        if r.status_code == 429:
+            print("    ! firecrawl rate limited - pausing 20s")
+            time.sleep(20)
+            return None
+        if r.status_code >= 400:
+            print(f"    ! firecrawl HTTP {r.status_code}")
+            if self.debug:
+                print(r.text[:400])
+            return None
+        try:
+            return r.json()
+        except ValueError:
+            return None
+
+    def search(self, query, limit=10):
+        """Discover pages and get their content in one call."""
+        data = self._post("/search", {
+            "query": query,
+            "limit": limit,
+            "scrapeOptions": {"formats": ["markdown"]},
+        })
+        if not data:
+            return []
+        out = data.get("data")
+        if isinstance(out, dict):                 # {web: [...]} shape
+            out = out.get("web") or out.get("results") or []
+        return out or []
+
+    def scrape(self, url):
+        data = self._post("/scrape", {"url": url, "formats": ["markdown"]})
+        if not data:
+            return None
+        d = data.get("data") or data
+        return d.get("markdown") if isinstance(d, dict) else None
+
+
+def prices_from_markdown(md, title_hint="", url="", where=""):
+    """Pull Naira and GBP figures out of a markdown blob.
+
+    Takes a little context either side of each hit so the row is readable,
+    and drops absurd values that are almost always phone numbers or IDs.
+    """
+    rows = []
+    if not md:
+        return rows
+    for rx, field in ((PRICE_RE, "price_ngn"), (GBP_RE, "price_gbp")):
+        for m in rx.finditer(md):
+            val = to_number(m.group(1))
+            if val is None:
+                continue
+            if field == "price_ngn" and not (1_000 <= val <= 500_000_000):
+                continue                      # phone numbers, TINs, years
+            if field == "price_gbp" and not (1 <= val <= 200_000):
+                continue
+            start = max(0, m.start() - 90)
+            ctx = " ".join(md[start:m.end() + 40].split())
+            rows.append({
+                "title": (title_hint or ctx)[:110],
+                "price_raw": m.group(0),
+                field: val,
+                "url": url,
+                "where": where,
+            })
+    return rows
+
+
+def scrape_via_firecrawl(term, fc):
+    """Search Jiji and the Nigerian stores through Firecrawl, then the UK
+    reference sites, returning the same row shape as the direct scrapers."""
+    rows = []
+    for site, tag in (("jiji.ng", "jiji"),
+                      ("faxontechnologies.com OR cloudsecurity.com.ng "
+                       "OR safetyhub.com.ng", "ng-store"),
+                      ("securitywarehouse.co.uk OR firetradesupplies.com",
+                       "uk-ref")):
+        hits = fc.search(f"{term} site:{site}" if " OR " not in site
+                         else f"{term} price", limit=8)
+        for h in hits:
+            if not isinstance(h, dict):
+                continue
+            md = h.get("markdown") or h.get("description") or ""
+            found = prices_from_markdown(
+                md, title_hint=h.get("title", ""),
+                url=h.get("url", ""), where=tag)
+            rows += [dict(r, source=tag) for r in found[:4]]
+        time.sleep(1.0)
+    return rows
 
 
 # ---------------------------------------------------------------- driver ---
@@ -299,9 +401,15 @@ def main():
     args = ap.parse_args()
 
     import os
-    fc_key = os.environ.get("FIRECRAWL_API_KEY") if args.firecrawl else None
-    if args.firecrawl and not fc_key:
-        sys.exit("--firecrawl needs FIRECRAWL_API_KEY in the environment")
+    fc = None
+    if args.firecrawl:
+        fc_key = os.environ.get("FIRECRAWL_API_KEY")
+        if not fc_key:
+            sys.exit("--firecrawl needs FIRECRAWL_API_KEY in the environment.\n"
+                     "  export FIRECRAWL_API_KEY=fc-...\n"
+                     "Never hardcode the key in this file - it is version controlled.")
+        fc = Firecrawl(fc_key, debug=args.debug)
+        print("Using Firecrawl (server-side fetching)")
 
     session = requests.Session()
     wanted = set(args.item) if args.item else None
@@ -314,13 +422,21 @@ def main():
         for term in terms:
             print(f"  searching: {term!r}")
             batch = []
-            if args.only in (None, "jiji"):
-                batch += [dict(r, source="jiji") for r in scrape_jiji(term, session, args.debug)]
-                time.sleep(PAUSE)
-            if args.only in (None, "woo"):
-                batch += [dict(r, source="ng-store") for r in scrape_woo(term, session, args.debug)]
-            if args.only in (None, "uk"):
-                batch += [dict(r, source="uk-ref") for r in scrape_uk(term, session, args.debug)]
+            if fc:
+                # Firecrawl does the fetching server-side, so this path also
+                # works from a network that cannot reach the stores directly.
+                batch += scrape_via_firecrawl(term, fc)
+            else:
+                if args.only in (None, "jiji"):
+                    batch += [dict(r, source="jiji")
+                              for r in scrape_jiji(term, session, args.debug)]
+                    time.sleep(PAUSE)
+                if args.only in (None, "woo"):
+                    batch += [dict(r, source="ng-store")
+                              for r in scrape_woo(term, session, args.debug)]
+                if args.only in (None, "uk"):
+                    batch += [dict(r, source="uk-ref")
+                              for r in scrape_uk(term, session, args.debug)]
 
             for r in batch:
                 r["rfp_item"] = num
